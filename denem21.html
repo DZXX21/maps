@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>OpenStreetMap İl İlçe Haritası</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/leaflet.css" />
+    <style>
+        /* Set the body, html, and map div to take up the full viewport */
+        body,
+        html,
+        #map {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        /* Move zoom controls to the top-right */
+        .leaflet-top.leaflet-right {
+            top: 10px;
+            right: 10px;
+        }
+
+        /* Styling for the menu and search */
+        .menu-container {
+            background-color: #f0f0f0;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 10px;
+        }
+
+        .search-container {
+            margin-top: 10px;
+        }
+
+        .search-input {
+            width: 80%;
+            padding: 5px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+        }
+
+        .search-button {
+            background-color: #007BFF;
+            color: #fff;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        #map {
+            width: 80%;
+            /* responsive width */
+            height: 790px;
+            /* fixed height */
+            margin: 0 auto;
+            margin-top: 1%;
+            margin-left: 18%;
+            border: 1px solid black;
+            background-color: lightgray;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="menu-container">
+        <label for="il">İl Seçin:</label>
+        <select id="il" onchange="loadIlce()">
+            <option value="">Tüm İller</option>
+            <option value="Ankara">Ankara</option>
+            <option value="İstanbul">İstanbul</option>
+            <option value="İzmir">İzmir</option>
+            <option value="Düzce">Düzce</option>
+            <option value="Adana">Adana</option>
+            <option value="Diyarbakır">Diyarbakır</option>
+            <!-- Diğer illeri buraya ekleyebilirsiniz -->
+        </select>
+
+        <label for="ilce">İlçe Seçin:</label>
+        <select id="ilce" onchange="showLocation()">
+            <option value="Tümü Seç">Tüm İlçeler</option>
+        </select>
+    </div>
+    <div class="search-container">
+        <label for="searchInput">Arama:</label>
+        <input type="text" id="searchInput" class="search-input" oninput="searchMarkers()">
+        <button class="search-button" onclick="clearSearch()">Sil</button>
+    </div>
+    <div id="map"></div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/leaflet.js"></script>
+    <script>
+        var map = L.map('map').setView([39.9334, 32.8597], 6); // Türkiye'nin koordinatları
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+
+        var ilSelect = document.getElementById("il");
+        var ilceSelect = document.getElementById("ilce");
+        var markers = [];
+
+        // İlçe verileri
+        var ilceler = {
+            "Ankara": ["Çankaya", "Keçiören", "Yenimahalle", "Mamak", "Etimesgut"],
+            "İstanbul": ["Beşiktaş", "Kadıköy", "Şişli", "Üsküdar", "Fatih"],
+            "İzmir": ["Konak", "Bornova", "Karşıyaka", "Buca", "Gaziemir"],
+            "Düzce": ["Akçakoca", "Merkez"],
+            "Adana": ["Seyhan", "Yüreğir"],
+            "Diyarbakır": ["Bağlar", "Kayapınar"]
+            // Diğer iller ve ilçeleri buraya ekleyebilirsiniz
+        };
+
+        // İlçe koordinatlari ve linkleri
+        var ilceKoordinatlari = {
+            "Çankaya": [{
+                    name: "Szutest 1",
+                    coordinates: [39.9208, 32.8541],
+                    link: "https://maps.app.goo.gl/YJov5Ri1XnWasr9L8"
+                },
+                {
+                    name: "Szutest 2",
+                    coordinates: [39.9255, 32.8625],
+                    link: "https://maps.app.goo.gl/nsXMf7SBDCqgiQRF7"
+                }
+            ],
+            "Keçiören": [{
+                    name: "Szutest 3",
+                    coordinates: [39.9942, 32.8486],
+                    link: "https://www.szutest.com.tr/"
+                },
+                {
+                    name: "Szutest 4",
+                    coordinates: [39.9913, 32.8607],
+                    link: "https://www.szutest.com.tr/"
+                }
+            ],
+            "Yenimahalle": [{
+                name: "Szutest 5",
+                coordinates: [39.9517, 32.7298],
+                link: "https://www.szutest.com.tr/"
+            }],
+            "Mamak": [{
+                name: "Szutest 6",
+                coordinates: [39.9789, 32.8895],
+                link: "https://www.szutest.com.tr/"
+            }],
+            "Etimesgut": [{
+                name: "Szutest 7",
+                coordinates: [39.9355, 32.8371],
+                link: "https://www.szutest.com.tr/"
+            }],
+            "Beşiktaş": [{
+                name: "Szutest 8",
+                coordinates: [41.0437, 29.0078],
+                link: "https://www.szutest.com.tr/"
+            }],
+            "Bağlar": [{
+                name: "Szutest 9",
+                coordinates: [37.8831, 40.9367],
+                link: "https://www.szutest.com.tr/"
+            }]
+            // Diğer ilçeleri ve linkleri buraya ekleyebilirsiniz
+        };
+
+        // İlçe seçeneklerini yükle
+        function loadIlce() {
+            var selectedIl = ilSelect.value;
+            ilceSelect.innerHTML = "<option value='Tümü Seç'>Tüm İlçeler</option>"; // İlçe seçeneği güncellendi
+            if (selectedIl !== "") {
+                var ilcelerArr = ilceler[selectedIl];
+                if (ilcelerArr) {
+                    for (var i = 0; i < ilcelerArr.length; i++) {
+                        var option = document.createElement("option");
+                        option.value = ilcelerArr[i];
+                        option.text = ilcelerArr[i];
+                        ilceSelect.appendChild(option);
+                    }
+                }
+                // İl seçeneği değiştiğinde ilçeleri göster
+                showLocation();
+            } else {
+                // Eğer boş bir il seçildiyse tüm illeri göster
+                showAllIl();
+            }
+        }
+
+        // İlçe seçenekleri yüklenirken tümü seçildiğinde haritada işaretçi göster
+        function showLocation() {
+            var selectedIl = ilSelect.value;
+            var selectedIlce = ilceSelect.value;
+
+            // Clear all existing markers
+            for (var i = 0; i < markers.length; i++) {
+                map.removeLayer(markers[i]);
+            }
+            markers = [];
+
+            if (selectedIlce === "Tümü Seç") {
+                // Tüm ilçeleri göstermek için il'in koordinatlarını kullan
+                var ilcelerArr = ilceler[selectedIl];
+                if (ilcelerArr) {
+                    for (var i = 0; i < ilcelerArr.length; i++) {
+                        var ilce = ilcelerArr[i];
+                        var coordinates = ilceKoordinatlari[ilce];
+                        if (coordinates) {
+                            for (var j = 0; j < coordinates.length; j++) {
+                                // Add markers for each district
+                                var marker = L.marker(coordinates[j].coordinates).addTo(map);
+                                marker.bindPopup("<a href='" + coordinates[j].link + "' target='_blank'>" + ilce +
+                                    "</a>").openPopup();
+                                markers.push(marker);
+                            }
+                        }
+                    }
+                }
+            } else if (selectedIlce !== "") {
+                // İlçenin koordinatlarını ve linkini burada belirlemelisiniz
+                var coordinates = ilceKoordinatlari[selectedIlce];
+                if (coordinates) {
+                    for (var i = 0; i < coordinates.length; i++) {
+                        // Add markers for the selected district
+                        var marker = L.marker(coordinates[i].coordinates).addTo(map);
+                        marker.bindPopup("<a href='" + coordinates[i].link + "' target='_blank'>" + selectedIlce +
+                            "</a>").openPopup();
+                        markers.push(marker);
+                    }
+                }
+            }
+        }
+
+        // Tüm illeri haritada göster
+        function showAllIl() {
+            for (var il in ilceler) {
+                var ilcelerArr = ilceler[il];
+                if (ilcelerArr) {
+                    for (var i = 0; i < ilcelerArr.length; i++) {
+                        var ilce = ilcelerArr[i];
+                        var coordinates = ilceKoordinatlari[ilce];
+                        if (coordinates) {
+                            for (var j = 0; j < coordinates.length; j++) {
+                                // Add markers for each district
+                                var marker = L.marker(coordinates[j].coordinates).addTo(map);
+                                marker.bindPopup("<a href='" + coordinates[j].link + "' target='_blank'>" + ilce +
+                                    "</a>").openPopup();
+                                markers.push(marker);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Sayfa yüklendiğinde tüm illeri haritada göster
+        window.onload = showAllIl;
+
+        // İşaretleri arama
+        function searchMarkers() {
+            var keyword = document.getElementById("searchInput").value.toLowerCase();
+
+            // Clear all existing markers
+            for (var i = 0; i < markers.length; i++) {
+                map.removeLayer(markers[i]);
+            }
+            markers = [];
+
+            for (var ilce in ilceKoordinatlari) {
+                for (var i = 0; i < ilceKoordinatlari[ilce].length; i++) {
+                    var markerInfo = ilceKoordinatlari[ilce][i];
+                    if (markerInfo.name.toLowerCase().includes(keyword)) {
+                        var coordinates = markerInfo.coordinates;
+                        var link = markerInfo.link;
+                        addMarker(ilce, coordinates, link);
+                    }
+                }
+            }
+        }
+
+        // İşaret eklemek için yardımcı fonksiyon
+        function addMarker(ilce, coordinates, link) {
+            var marker = L.marker(coordinates).addTo(map);
+            marker.bindPopup("<a href='" + link + "' target='_blank'>" + ilce + "</a>").openPopup();
+            markers.push(marker);
+        }
+
+        // Arama kutusunu temizleme işlevi
+        function clearSearch() {
+            document.getElementById("searchInput").value = "";
+            // Tüm işaretleri göster
+            showAllIl();
+        }
+    </script>
+</body>
+
+</html>
